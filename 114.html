@@ -47,7 +47,6 @@
     <script type="text/babel" data-type="module">
         import React, { useState, useEffect, useMemo, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
-        // 修正：加入 Sparkles 到引用列表
         import { FileText, CheckCircle, XCircle, TrendingUp, Save, Download, Info, ChevronDown, ChevronUp, Search, Upload, Filter, Tag, FileSpreadsheet, RefreshCw, Calendar, FileUp, AlertTriangle, Gavel, PlusCircle, MinusCircle, ShieldAlert, ShieldCheck, CheckSquare, Square, EyeOff, Eye, AlertCircle, ExternalLink, Users, Scale, Sprout, DownloadCloud, BookOpen, FileJson, HardDriveDownload, LogOut, MessageCircle, X, Bot, Send, Landmark, BarChart3, Globe, Sparkles } from 'lucide-react';
 
         // --- 設定與常數 ---
@@ -136,11 +135,12 @@
 
         // --- 機器人問答題庫 (FAQ Data) ---
         const BOT_FAQ = [
-            { id: 'new_114', label: '🆕 114年度新指標？', answer: '本屆新增9項指標！重點包含：\n1. 提升企業價值計畫 (1.5)\n2. 範疇三碳排放揭露 (4.27)\n3. 能源管理計畫 (4.28)\n4. 內部碳定價 (4.29)\n5. 員工職涯培訓與滿意度 (4.30, 4.31)\n6. 董事會層級永續發展委員會 (4.34)' },
-            { id: 'value_plan', label: '📈 企業價值計畫是？', answer: '這是配合「亞洲資產管理中心」政策的新指標(1.5)。\n鼓勵公司分析資金成本、獲利能力與市場評價，制定具體措施提報董事會，並於公開資訊觀測站專區揭露。' },
-            { id: 'weights', label: '⚖️ 今年權重分配？', answer: '為強調永續轉型，本屆權重調整如下：\n1. 維護股東權益：16%\n2. 強化董事會：25%\n3. 資訊透明度：10%\n4. 推動永續發展：49% (大幅提升)' },
-            { id: 'privacy', label: '🔒 資料隱私安全嗎？', answer: '絕對安全！本系統為「純前端」運作，所有評鑑資料、佐證文字都只儲存在您的瀏覽器記憶體中，完全不會上傳到任何伺服器。' },
-            { id: 'export', label: '💾 如何匯出報告？', answer: '填寫完畢後，點擊右上角的「匯出報表」按鈕，系統會自動將您的填答結果整理成 CSV 表格供您下載。您也可以隨時點擊「儲存進度」下載 JSON 檔備份。' },
+            { id: 'q1', label: '1. 114/115年度新指標？', answer: '本系統為 114 年度版本，新增重點包含：\n1. 提升企業價值計畫 (1.5)\n2. 範疇三碳排放揭露 (4.27)\n3. 能源管理計畫 (4.28)\n4. 內部碳定價 (4.29)\n5. 員工職涯培訓與滿意度 (4.30, 4.31)\n6. 董事會層級永續發展委員會 (4.34)' },
+            { id: 'q2', label: '2. 分數如何計算？', answer: '114年度權重分配：\n1. 維護股東權益：16%\n2. 強化董事會：25%\n3. 資訊透明度：10%\n4. 推動永續發展：49% (大幅提升)' },
+            { id: 'q3', label: '3. 資料隱私安全嗎？', answer: '絕對安全！本系統為「純前端」運作，所有評鑑資料、佐證文字都只儲存在您的瀏覽器記憶體中，完全不會上傳到任何伺服器。' },
+            { id: 'q4', label: '4. 如何儲存和匯入進度？', answer: '點擊右上角「儲存進度」可下載 JSON 檔備份；下次使用時，在首頁點擊「2. 匯入 CSV 或進度檔」即可恢復。' },
+            { id: 'q5', label: '5. 如何匯出報告？', answer: '填寫完畢後，點擊右上角的「匯出報表」按鈕，系統會自動將您的填答結果整理成 CSV 表格供您下載。' },
+            { id: 'q6', label: '6. 什麼是額外減分？', answer: '針對重大違規事項（如違反證交法、財報更正等）的扣分機制。請至「額外減分 (Penalty)」頁籤檢視。' },
         ];
 
         // 自動分類器：將 1.x, 2.x, 3.x, 4.x 轉換為 E/S/G
@@ -160,7 +160,7 @@
         const HelperBot = () => {
             const [isOpen, setIsOpen] = useState(false);
             const [messages, setMessages] = useState([
-                { id: 1, role: 'bot', text: '您好！我是 114 年度評鑑小幫手 🌿。\n本屆新增了許多關於「企業價值」與「碳定價」的指標，我可以為您解說！' }
+                { id: 1, role: 'bot', text: '您好！我是 114自評系統小幫手 🌿。\n本屆新增了許多關於「企業價值」與「碳定價」的指標，我可以為您解說！' }
             ]);
             const [isTyping, setIsTyping] = useState(false);
             const messagesEndRef = useRef(null);
@@ -195,7 +195,7 @@
                                         <Bot size={20} className="text-white"/>
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-sm">114年 評鑑嚮導</h3>
+                                        <h3 className="font-bold text-sm">114自評系統小幫手</h3>
                                         <p className="text-[10px] text-emerald-100 opacity-90">協助您了解第12屆新制</p>
                                     </div>
                                 </div>
@@ -238,13 +238,13 @@
 
                             <div className="p-3 bg-white border-t border-slate-100 overflow-x-auto no-scrollbar">
                                 <p className="text-xs text-slate-400 mb-2 font-bold px-1">建議提問：</p>
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-col gap-2">
                                     {BOT_FAQ.map(faq => (
                                         <button 
                                             key={faq.id} 
                                             onClick={() => handleQuestionClick(faq)}
                                             disabled={isTyping}
-                                            className="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 border border-slate-200 rounded-full text-xs font-medium transition-all whitespace-nowrap active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 border border-slate-200 rounded-lg text-xs font-medium transition-all text-left active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed w-full truncate"
                                         >
                                             {faq.label}
                                         </button>
