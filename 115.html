@@ -68,18 +68,19 @@
 
         // --- 機器人問答題庫 (FAQ Data) ---
         const BOT_FAQ = [
-            { id: 'start', label: '🚀 如何開始使用？', answer: '請先下載「指標原始檔 (CSV)」，然後點擊「匯入 CSV」按鈕即可生成評鑑題目。若您已有之前的進度檔 (JSON)，也可以直接匯入喔！' },
-            { id: 'score', label: '📊 分數如何計算？', answer: '本系統依據證交所規定權重計算：\n環境面 (E)：21%\n社會面 (S)：31%\n治理面 (G)：48%\n\n另外包含 A+ 加分項 (每題+1) 與額外減分項。' },
-            { id: 'privacy', label: '🔒 資料隱私安全嗎？', answer: '絕對安全！本系統為「純前端」運作，所有評鑑資料、佐證文字都只儲存在您的瀏覽器記憶體中，完全不會上傳到任何伺服器。' },
-            { id: 'export', label: '💾 如何匯出報告？', answer: '填寫完畢後，點擊右上角的「匯出報表」按鈕，系統會自動將您的填答結果整理成 CSV 表格供您下載。您也可以隨時點擊「儲存進度」下載 JSON 檔備份。' },
-            { id: 'penalty', label: '⚠️ 什麼是額外減分？', answer: '這是針對重大違規事項的扣分機制（如違反證交法、財報更正等）。您可以在「額外減分 (Penalty)」頁籤中檢視並勾選是否有相關情事。' },
+            { id: 'q1', label: '1. 115年度新指標？', answer: '本系統為 115 年度 ESG 評鑑版本，指標依據最新 ESG 評鑑系統作業手冊，強調 E(環境)、S(社會)、G(治理) 三大構面之均衡發展。' },
+            { id: 'q2', label: '2. 分數如何計算？', answer: '115年度權重分配：\n環境面 (E)：21%\n社會面 (S)：31%\n治理面 (G)：48%' },
+            { id: 'q3', label: '3. 資料隱私安全嗎？', answer: '絕對安全！本系統為「純前端」運作，所有評鑑資料、佐證文字都只儲存在您的瀏覽器記憶體中，完全不會上傳到任何伺服器。' },
+            { id: 'q4', label: '4. 如何儲存和匯入進度？', answer: '點擊右上角「儲存進度」可下載 JSON 檔備份；下次使用時，在首頁點擊「2. 匯入 CSV 或進度檔」即可恢復。' },
+            { id: 'q5', label: '5. 如何匯出報告？', answer: '填寫完畢後，點擊右上角的「匯出報表」按鈕，系統會自動將您的填答結果整理成 CSV 表格供您下載。' },
+            { id: 'q6', label: '6. 什麼是額外減分？', answer: '針對重大違規事項（如違反證交法、財報更正等）的扣分機制。請至「額外減分 (Penalty)」頁籤檢視。' },
         ];
 
         // --- 機器人組件 (Bot Component) ---
         const HelperBot = () => {
             const [isOpen, setIsOpen] = useState(false);
             const [messages, setMessages] = useState([
-                { id: 1, role: 'bot', text: '嗨！我是您的 ESG 評鑑小幫手 🤖。\n請問有什麼我可以協助您的嗎？' }
+                { id: 1, role: 'bot', text: '您好！我是 115自評系統小幫手 🤖。\n請問有什麼我可以協助您的嗎？' }
             ]);
             const [isTyping, setIsTyping] = useState(false);
             const messagesEndRef = useRef(null);
@@ -110,15 +111,15 @@
                     {/* Chat Window */}
                     {isOpen && (
                         <div className="pointer-events-auto mb-4 w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-slide-up origin-bottom-right" style={{height: '500px'}}>
-                            {/* Header */}
-                            <div className="bg-emerald-600 p-4 flex justify-between items-center text-white shadow-sm">
+                            {/* Header - 使用 Blue 色系區隔 */}
+                            <div className="bg-blue-600 p-4 flex justify-between items-center text-white shadow-sm">
                                 <div className="flex items-center gap-2">
                                     <div className="bg-white/20 p-1.5 rounded-lg">
                                         <Bot size={20} className="text-white"/>
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-sm">ESG 小幫手</h3>
-                                        <p className="text-[10px] text-emerald-100 opacity-90">在此為您解答系統操作問題</p>
+                                        <h3 className="font-bold text-sm">115自評系統小幫手</h3>
+                                        <p className="text-[10px] text-blue-100 opacity-90">協助您了解最新 ESG 評鑑</p>
                                     </div>
                                 </div>
                                 <button onClick={() => setIsOpen(false)} className="hover:bg-white/20 p-1 rounded transition-colors">
@@ -131,13 +132,13 @@
                                 {messages.map((msg) => (
                                     <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                         {msg.role === 'bot' && (
-                                            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center mr-2 flex-shrink-0 border border-emerald-200">
-                                                <Bot size={14} className="text-emerald-600"/>
+                                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2 flex-shrink-0 border border-blue-200">
+                                                <Bot size={14} className="text-blue-600"/>
                                             </div>
                                         )}
                                         <div className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line shadow-sm ${
                                             msg.role === 'user' 
-                                            ? 'bg-emerald-600 text-white rounded-tr-none' 
+                                            ? 'bg-blue-600 text-white rounded-tr-none' 
                                             : 'bg-white text-slate-700 border border-slate-200 rounded-tl-none'
                                         }`}>
                                             {msg.text}
@@ -146,8 +147,8 @@
                                 ))}
                                 {isTyping && (
                                     <div className="flex justify-start">
-                                        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center mr-2 flex-shrink-0 border border-emerald-200">
-                                            <Bot size={14} className="text-emerald-600"/>
+                                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2 flex-shrink-0 border border-blue-200">
+                                            <Bot size={14} className="text-blue-600"/>
                                         </div>
                                         <div className="bg-white p-3 rounded-2xl rounded-tl-none border border-slate-200 shadow-sm flex items-center gap-1">
                                             <div className="w-1.5 h-1.5 bg-slate-400 rounded-full typing-dot"></div>
@@ -162,13 +163,13 @@
                             {/* Quick Actions (Chips) */}
                             <div className="p-3 bg-white border-t border-slate-100 overflow-x-auto no-scrollbar">
                                 <p className="text-xs text-slate-400 mb-2 font-bold px-1">建議提問：</p>
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-col gap-2">
                                     {BOT_FAQ.map(faq => (
                                         <button 
                                             key={faq.id} 
                                             onClick={() => handleQuestionClick(faq)}
                                             disabled={isTyping}
-                                            className="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 border border-slate-200 rounded-full text-xs font-medium transition-all whitespace-nowrap active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 border border-slate-200 rounded-lg text-xs font-medium transition-all text-left active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed w-full truncate"
                                         >
                                             {faq.label}
                                         </button>
@@ -178,10 +179,10 @@
                         </div>
                     )}
 
-                    {/* Floating Button */}
+                    {/* Floating Button - 使用 Blue 色系區隔 */}
                     <button 
                         onClick={() => setIsOpen(!isOpen)}
-                        className={`pointer-events-auto p-4 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center ${isOpen ? 'bg-slate-700 rotate-90' : 'bg-emerald-600 hover:bg-emerald-700 rotate-0'}`}
+                        className={`pointer-events-auto p-4 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center ${isOpen ? 'bg-slate-700 rotate-90' : 'bg-blue-600 hover:bg-blue-700 rotate-0'}`}
                     >
                         {isOpen ? <X size={24} className="text-white" /> : <MessageCircle size={24} className="text-white" />}
                     </button>
@@ -459,7 +460,7 @@
                             </div>
                             <div className="flex flex-col items-center">
                                 <div className="relative w-32 h-32 rounded-full flex items-center justify-center"
-                                     style={{ background: `conic-gradient(#4F46E5 ${stats.progress}%, #F3F4F6 0)` }}>
+                                     style={{ background: `conic-gradient(#2563EB ${stats.progress}%, #F3F4F6 0)` }}>
                                     <div className="w-24 h-24 bg-white rounded-full flex flex-col items-center justify-center">
                                         <span className="text-2xl font-bold text-slate-800">{stats.progress}%</span>
                                         <span className="text-[10px] text-slate-400 uppercase">Completed</span>
@@ -469,7 +470,7 @@
                                     {stats.missing.Total > 0 ? (
                                         <span className="text-red-600 font-black bg-red-50 px-3 py-1 rounded-full">還有 {stats.missing.Total} 題未填答</span>
                                     ) : (
-                                        <span className="text-emerald-600 font-bold">已全數完成</span>
+                                        <span className="text-blue-600 font-bold">已全數完成</span>
                                     )}
                                 </div>
                             </div>
@@ -694,14 +695,14 @@
                         <div className="max-w-5xl mx-auto px-4">
                             <div className="flex justify-between h-16 items-center">
                                 <div className="flex items-center gap-3 font-bold text-slate-800">
-                                    <div className="bg-emerald-600 text-white p-1.5 rounded-lg"><FileText size={20}/></div>
+                                    <div className="bg-blue-600 text-white p-1.5 rounded-lg"><FileText size={20}/></div>
                                     115年度 ESG 評鑑
                                 </div>
                                 <div className="flex gap-2 text-sm font-medium text-slate-500">
-                                    <button onClick={handleSaveProgress} className="hover:text-emerald-600 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 shadow-sm transition-all">
+                                    <button onClick={handleSaveProgress} className="hover:text-blue-600 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 shadow-sm transition-all">
                                         <Save size={14}/> 儲存進度
                                     </button>
-                                    <button onClick={handleExportCSV} className="hover:text-emerald-600 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 shadow-sm transition-all">
+                                    <button onClick={handleExportCSV} className="hover:text-blue-600 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 shadow-sm transition-all">
                                         <HardDriveDownload size={14}/> 匯出報表
                                     </button>
                                     <button onClick={() => {if(confirm('確定要重置並重新匯入嗎？未儲存的資料將會遺失。')) window.location.reload()}} className="hover:text-rose-600 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-rose-50 transition-all text-slate-400" title="重置系統">
@@ -732,10 +733,10 @@
                                 <div className="flex justify-between items-center mb-6">
                                     <div className="relative w-full md:w-64">
                                         <Search className="absolute left-3 top-2.5 text-slate-400" size={16}/>
-                                        <input type="text" placeholder="搜尋..." className="pl-9 w-full py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/>
+                                        <input type="text" placeholder="搜尋..." className="pl-9 w-full py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/>
                                     </div>
                                     <label className="flex items-center gap-2 text-sm font-bold text-slate-600 cursor-pointer">
-                                        <input type="checkbox" checked={showUnansweredOnly} onChange={e => setShowUnansweredOnly(e.target.checked)} className="accent-emerald-600"/>
+                                        <input type="checkbox" checked={showUnansweredOnly} onChange={e => setShowUnansweredOnly(e.target.checked)} className="accent-blue-600"/>
                                         只顯示未填答
                                     </label>
                                 </div>
@@ -747,7 +748,7 @@
                     <footer className="border-t border-slate-200 py-8 text-center text-slate-400 text-xs">
                         <div className="flex items-center justify-center gap-1 mb-2">
                             <Info size={12} /> 資料來源：
-                            <a href="https://cgc.twse.com.tw/esgEvaluation/listCh" target="_blank" className="text-emerald-600 hover:underline">臺灣證券交易所公司治理中心</a>
+                            <a href="https://cgc.twse.com.tw/esgEvaluation/listCh" target="_blank" className="text-blue-600 hover:underline">臺灣證券交易所公司治理中心</a>
                         </div>
                         © 115年度 ESG 評鑑自評系統
                     </footer>
