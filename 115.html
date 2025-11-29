@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>115年度 ESG 評鑑自評系統</title>
+    
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 設定 Import Map -->
+    <script type="importmap">
+        {
+            "imports": {
+                "react": "https://esm.sh/react@18.2.0",
+                "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+                "lucide-react": "https://esm.sh/lucide-react@0.344.0"
+            }
+        }
+    </script>
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        .animate-slide-up { animation: slideUp 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* 打字機效果游標 */
+        .typing-dot {
+            animation: typing 1.4s infinite ease-in-out both;
+        }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0); } 
+            40% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased">
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useMemo, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { FileText, CheckCircle, XCircle, TrendingUp, Save, Download, Info, ChevronDown, ChevronUp, Search, Upload, Filter, Tag, FileSpreadsheet, RefreshCw, Calendar, FileUp, AlertTriangle, Gavel, PlusCircle, MinusCircle, ShieldAlert, ShieldCheck, CheckSquare, Square, EyeOff, Eye, AlertCircle, ExternalLink, Users, Scale, Sprout, DownloadCloud, BookOpen, FileJson, HardDriveDownload, LogOut, MessageCircle, X, Bot, Send } from 'lucide-react';
+
+        // --- 設定與常數 ---
+        const WEIGHTS = { E: 0.21, S: 0.31, G: 0.48 };
+
+        const CATEGORY_CONFIG = {
+            E: { name: "環境面 (Environment)", icon: Sprout, color: "emerald", bg: "bg-emerald-100", text: "text-emerald-700", border: "border-emerald-200", ring: "ring-emerald-500" },
+            S: { name: "社會面 (Social)", icon: Users, color: "sky", bg: "bg-sky-100", text: "text-sky-700", border: "border-sky-200", ring: "ring-sky-500" },
+            G: { name: "治理面 (Governance)", icon: Scale, color: "violet", bg: "bg-violet-100", text: "text-violet-700", border: "border-violet-200", ring: "ring-violet-500" },
+            P: { name: "額外減分 (Penalty)", icon: ShieldAlert, color: "rose", bg: "bg-rose-100", text: "text-rose-700", border: "border-rose-200", ring: "ring-rose-500" }
+        };
+
+        const OFFICIAL_PENALTY_ITEMS = [
+            { id: "P-1", category: "P", title: "違反證券交易法", point: 1, content: "受評年度公司或其負責人因違反證券交易法相關規定，經法院判決有罪者（包含緩刑）。" },
+            { id: "P-2", category: "P", title: "財務報告更正", point: 1, content: "受評年度財務報告有更正或重編情事，情節重大者。" },
+            { id: "P-3", category: "P", title: "內部控制重大缺失", point: 2, content: "受評年度內部控制制度有重大缺失，經會計師出具保留意見或否定意見者。" },
+            { id: "P-4", category: "P", title: "違反法律規章", point: 1, content: "受評年度公司因違反環境保護、勞工、消費者保護等法律，經主管機關處分，情節重大者。" }
+        ];
+
+        // --- 機器人問答題庫 (FAQ Data) ---
+        const BOT_FAQ = [
+            { id: 'start', label: '🚀 如何開始使用？', answer: '請先下載「指標原始檔 (CSV)」，然後點擊「匯入 CSV」按鈕即可生成評鑑題目。若您已有之前的進度檔 (JSON)，也可以直接匯入喔！' },
+            { id: 'score', label: '📊 分數如何計算？', answer: '本系統依據證交所規定權重計算：\n環境面 (E)：21%\n社會面 (S)：31%\n治理面 (G)：48%\n\n另外包含 A+ 加分項 (每題+1) 與額外減分項。' },
+            { id: 'privacy', label: '🔒 資料隱私安全嗎？', answer: '絕對安全！本系統為「純前端」運作，所有評鑑資料、佐證文字都只儲存在您的瀏覽器記憶體中，完全不會上傳到任何伺服器。' },
+            { id: 'export', label: '💾 如何匯出報告？', answer: '填寫完畢後，點擊右上角的「匯出報表」按鈕，系統會自動將您的填答結果整理成 CSV 表格供您下載。您也可以隨時點擊「儲存進度」下載 JSON 檔備份。' },
+            { id: 'penalty', label: '⚠️ 什麼是額外減分？', answer: '這是針對重大違規事項的扣分機制（如違反證交法、財報更正等）。您可以在「額外減分 (Penalty)」頁籤中檢視並勾選是否有相關情事。' },
+        ];
+
+        // --- 機器人組件 (Bot Component) ---
+        const HelperBot = () => {
+            const [isOpen, setIsOpen] = useState(false);
+            const [messages, setMessages] = useState([
+                { id: 1, role: 'bot', text: '嗨！我是您的 ESG 評鑑小幫手 🤖。\n請問有什麼我可以協助您的嗎？' }
+            ]);
+            const [isTyping, setIsTyping] = useState(false);
+            const messagesEndRef = useRef(null);
+
+            const scrollToBottom = () => {
+                messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            };
+
+            useEffect(() => {
+                scrollToBottom();
+            }, [messages, isTyping, isOpen]);
+
+            const handleQuestionClick = (faq) => {
+                // 1. User Message
+                const userMsgId = Date.now();
+                setMessages(prev => [...prev, { id: userMsgId, role: 'user', text: faq.label }]);
+                setIsTyping(true);
+
+                // 2. Bot Response (Simulate delay)
+                setTimeout(() => {
+                    setIsTyping(false);
+                    setMessages(prev => [...prev, { id: Date.now(), role: 'bot', text: faq.answer }]);
+                }, 600);
+            };
+
+            return (
+                <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end pointer-events-none">
+                    {/* Chat Window */}
+                    {isOpen && (
+                        <div className="pointer-events-auto mb-4 w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-slide-up origin-bottom-right" style={{height: '500px'}}>
+                            {/* Header */}
+                            <div className="bg-emerald-600 p-4 flex justify-between items-center text-white shadow-sm">
+                                <div className="flex items-center gap-2">
+                                    <div className="bg-white/20 p-1.5 rounded-lg">
+                                        <Bot size={20} className="text-white"/>
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-sm">ESG 小幫手</h3>
+                                        <p className="text-[10px] text-emerald-100 opacity-90">在此為您解答系統操作問題</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setIsOpen(false)} className="hover:bg-white/20 p-1 rounded transition-colors">
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            {/* Messages Area */}
+                            <div className="flex-1 overflow-y-auto p-4 bg-slate-50 space-y-4">
+                                {messages.map((msg) => (
+                                    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        {msg.role === 'bot' && (
+                                            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center mr-2 flex-shrink-0 border border-emerald-200">
+                                                <Bot size={14} className="text-emerald-600"/>
+                                            </div>
+                                        )}
+                                        <div className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line shadow-sm ${
+                                            msg.role === 'user' 
+                                            ? 'bg-emerald-600 text-white rounded-tr-none' 
+                                            : 'bg-white text-slate-700 border border-slate-200 rounded-tl-none'
+                                        }`}>
+                                            {msg.text}
+                                        </div>
+                                    </div>
+                                ))}
+                                {isTyping && (
+                                    <div className="flex justify-start">
+                                        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center mr-2 flex-shrink-0 border border-emerald-200">
+                                            <Bot size={14} className="text-emerald-600"/>
+                                        </div>
+                                        <div className="bg-white p-3 rounded-2xl rounded-tl-none border border-slate-200 shadow-sm flex items-center gap-1">
+                                            <div className="w-1.5 h-1.5 bg-slate-400 rounded-full typing-dot"></div>
+                                            <div className="w-1.5 h-1.5 bg-slate-400 rounded-full typing-dot"></div>
+                                            <div className="w-1.5 h-1.5 bg-slate-400 rounded-full typing-dot"></div>
+                                        </div>
+                                    </div>
+                                )}
+                                <div ref={messagesEndRef} />
+                            </div>
+
+                            {/* Quick Actions (Chips) */}
+                            <div className="p-3 bg-white border-t border-slate-100 overflow-x-auto no-scrollbar">
+                                <p className="text-xs text-slate-400 mb-2 font-bold px-1">建議提問：</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {BOT_FAQ.map(faq => (
+                                        <button 
+                                            key={faq.id} 
+                                            onClick={() => handleQuestionClick(faq)}
+                                            disabled={isTyping}
+                                            className="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 border border-slate-200 rounded-full text-xs font-medium transition-all whitespace-nowrap active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {faq.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Floating Button */}
+                    <button 
+                        onClick={() => setIsOpen(!isOpen)}
+                        className={`pointer-events-auto p-4 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center ${isOpen ? 'bg-slate-700 rotate-90' : 'bg-emerald-600 hover:bg-emerald-700 rotate-0'}`}
+                    >
+                        {isOpen ? <X size={24} className="text-white" /> : <MessageCircle size={24} className="text-white" />}
+                    </button>
+                </div>
+            );
+        };
+
+        // CSV 解析器
+        const parseCSVProfessional = (text) => {
+            const rows = [];
+            let currentRow = [];
+            let currentVal = '';
+            let insideQuote = false;
+            
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                if (char === '"') {
+                    if (insideQuote && text[i+1] === '"') { currentVal += '"'; i++; }
+                    else { insideQuote = !insideQuote; }
+                } else if (char === ',' && !insideQuote) {
+                    currentRow.push(currentVal.trim()); currentVal = '';
+                } else if ((char === '\r' || char === '\n') && !insideQuote) {
+                    if (char === '\r' && text[i+1] === '\n') i++;
+                    currentRow.push(currentVal.trim());
+                    if (currentRow.length > 1 || currentRow[0] !== '') rows.push(currentRow);
+                    currentRow = []; currentVal = '';
+                } else { currentVal += char; }
+            }
+            if (currentVal || currentRow.length > 0) { currentRow.push(currentVal.trim()); rows.push(currentRow); }
+            return rows;
+        };
+
+        function ESGSystem() {
+            const [activeTab, setActiveTab] = useState("dashboard");
+            const [indicators, setIndicators] = useState([]);
+            const [penaltyItems, setPenaltyItems] = useState(OFFICIAL_PENALTY_ITEMS);
+            const [answers, setAnswers] = useState({});
+            const [penaltyAnswers, setPenaltyAnswers] = useState({});
+            const [searchTerm, setSearchTerm] = useState("");
+            const [expandedId, setExpandedId] = useState(null);
+            const [hasData, setHasData] = useState(false); 
+            const [showUnansweredOnly, setShowUnansweredOnly] = useState(false);
+            const fileInputRef = useRef(null);
+            
+            // 防止重新整理導致資料遺失
+            useEffect(() => {
+                const handleBeforeUnload = (e) => {
+                    if (hasData) {
+                        e.preventDefault();
+                        e.returnValue = '您有未儲存的評鑑資料，確定要離開嗎？';
+                        return '您有未儲存的評鑑資料，確定要離開嗎？';
+                    }
+                };
+                window.addEventListener('beforeunload', handleBeforeUnload);
+                return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+            }, [hasData]);
+
+            useEffect(() => {
+                if (indicators.length === 0) return;
+                setAnswers(prev => {
+                    const next = { ...prev };
+                    indicators.forEach(item => {
+                        if (!next[item.id]) {
+                            next[item.id] = { 
+                                compliance: null, 
+                                extraCredit: false, 
+                                evidence: "", 
+                                userNote: "", 
+                                extraCreditNote: ""
+                            };
+                        }
+                    });
+                    return next;
+                });
+            }, [indicators]);
+
+            const handleDownloadTemplate = () => {
+                const fileName = '115_ESG_Indicator_Template.csv';
+                const link = document.createElement('a');
+                link.href = `./${fileName}`;
+                link.setAttribute('download', fileName);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            const handleSaveProgress = () => {
+                const data = {
+                    timestamp: new Date().toISOString(),
+                    indicators,
+                    answers,
+                    penaltyAnswers,
+                    hasData: true
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `ESG_評鑑進度_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            const handleExportCSV = () => {
+                let csvContent = "\uFEFF編號,指標內容,符合情形,佐證說明,加分勾選,加分說明\n";
+                
+                indicators.forEach(item => {
+                    const ans = answers[item.id] || {};
+                    const status = ans.compliance === true ? "符合" : (ans.compliance === false ? "未達成" : "未填");
+                    const extra = ans.extraCredit ? "是" : "否";
+                    const safeText = (txt) => `"${(txt || "").replace(/"/g, '""')}"`;
+                    
+                    csvContent += `${item.id},${safeText(item.title)},${status},${safeText(ans.userNote)},${extra},${safeText(ans.extraCreditNote)}\n`;
+                });
+
+                penaltyItems.forEach(item => {
+                    const ans = penaltyAnswers[item.id] || {};
+                    const status = ans.isViolated ? "有違規 (扣分)" : "無違規";
+                    const note = ans.note || "";
+                    csvContent += `${item.id},${item.title},${status},${note},,\n`;
+                });
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `ESG_評鑑結果報表_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            const handleFileChange = (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const text = e.target?.result;
+                    if (typeof text === 'string') {
+                        if (file.name.endsWith('.json')) {
+                            processJSON(text);
+                        } else {
+                            processCSV(text);
+                        }
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            };
+
+            const processJSON = (jsonText) => {
+                try {
+                    const data = JSON.parse(jsonText);
+                    if (data.indicators && data.answers) {
+                        setIndicators(data.indicators);
+                        setAnswers(data.answers);
+                        if (data.penaltyAnswers) setPenaltyAnswers(data.penaltyAnswers);
+                        setHasData(true);
+                        setActiveTab("dashboard");
+                        alert("進度載入成功！");
+                    } else {
+                        alert("檔案格式錯誤，請確認是否為本系統匯出之 JSON 檔。");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert("JSON 讀取失敗。");
+                }
+            };
+
+            const processCSV = (csvText) => {
+                try {
+                    const rows = parseCSVProfessional(csvText);
+                    const newIndicators = [];
+                    let isHeader = true;
+
+                    rows.forEach(cols => {
+                        if (cols.length < 2) return;
+                        if (isHeader) {
+                            if (cols.some(c => c.includes("編號") || c.includes("指標"))) {
+                                if (!cols[0].match(/^[ESG]-\d+/)) { isHeader = false; return; }
+                            }
+                        }
+
+                        const id = cols[0] || "";
+                        if (!id.match(/^[ESG]-\d+/)) return;
+
+                        const oldId = (cols[1] || "").toString();
+                        const content = (cols[2] || "").toString();
+                        const type = (cols[3] || "A").toString();
+                        const note = (cols[4] || "").toString();
+                        const evidenceSource = (cols[5] || "").toString(); 
+                        
+                        let bonusCriteria = null;
+                        if (type.includes("A+") && (note.includes("加一分") || note.includes("加分"))) {
+                            const match = note.match(/【(.*?)加一分.*?】/) || note.match(/若(.*?)加一分/);
+                            bonusCriteria = match ? match[0] : "請詳閱指標說明。";
+                        }
+
+                        newIndicators.push({
+                            id, oldId, category: id.charAt(0),
+                            title: content.length > 40 ? content.substring(0, 40) + "..." : content,
+                            fullContent: content,
+                            type, note, bonusCriteria, evidenceSource,
+                            isNew: !oldId || note.includes("新增")
+                        });
+                    });
+
+                    if (newIndicators.length > 0) {
+                        setIndicators(newIndicators);
+                        setHasData(true);
+                        setActiveTab("dashboard");
+                        alert(`匯入成功！共解析出 ${newIndicators.length} 項指標。`);
+                    } else {
+                        alert("匯入失敗：未找到有效指標，請確認 CSV 格式 (需含編號、前屆編號等欄位)。");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert("檔案讀取發生錯誤，請檢查檔案編碼。");
+                }
+            };
+
+            const stats = useMemo(() => {
+                let raw = { E: 0, S: 0, G: 0 };
+                let total = { E: 0, S: 0, G: 0 };
+                let missing = { E: 0, S: 0, G: 0, Total: 0 }; 
+                let bonus = 0, deduction = 0; 
+
+                indicators.forEach(item => {
+                    const ans = answers[item.id];
+                    if (total[item.category] !== undefined) total[item.category]++;
+                    
+                    if (ans?.compliance === true) {
+                        if (raw[item.category] !== undefined) raw[item.category]++;
+                        if (item.type.includes("A+") && ans.extraCredit) bonus++;
+                    } else if (ans?.compliance === null || ans?.compliance === undefined) {
+                        if (missing[item.category] !== undefined) missing[item.category]++;
+                        missing.Total++;
+                    }
+                });
+
+                Object.values(penaltyAnswers).forEach(a => { if(a.isViolated) deduction += 1; });
+
+                const score = (cat) => total[cat] ? (raw[cat] / total[cat]) * (WEIGHTS[cat] * 100) : 0;
+                const totalScore = score('E') + score('S') + score('G') + bonus - deduction;
+
+                return {
+                    raw, total, missing,
+                    weighted: { 
+                        E: score('E').toFixed(2), S: score('S').toFixed(2), G: score('G').toFixed(2),
+                        Base: (score('E') + score('S') + score('G')).toFixed(2),
+                        Bonus: bonus, Deduction: deduction,
+                        Total: Math.max(0, Math.min(totalScore, 100)).toFixed(2)
+                    },
+                    progress: indicators.length > 0 ? Math.round(((indicators.length - missing.Total) / indicators.length) * 100) : 0
+                };
+            }, [answers, indicators, penaltyAnswers]);
+
+            const renderDashboard = () => (
+                <div className="space-y-6 animate-fade-in">
+                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
+                        <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
+                            <div className="flex-1 text-center md:text-left">
+                                <h3 className="text-slate-500 font-medium tracking-widest text-xs uppercase mb-2">Current Score</h3>
+                                <div className="flex items-baseline justify-center md:justify-start gap-1">
+                                    <span className="text-6xl font-black text-slate-900">{stats.weighted.Total}</span>
+                                    <span className="text-xl text-slate-400">/ 100</span>
+                                </div>
+                                <div className="flex flex-wrap gap-3 mt-6 justify-center md:justify-start">
+                                    <span className="px-3 py-1 bg-slate-100 rounded text-xs font-bold text-slate-600">基礎 {stats.weighted.Base}</span>
+                                    <span className="px-3 py-1 bg-amber-50 rounded text-xs font-bold text-amber-700 border border-amber-100">+{stats.weighted.Bonus} 加分</span>
+                                    <span className="px-3 py-1 bg-red-50 rounded text-xs font-bold text-red-700 border border-red-100">-{stats.weighted.Deduction} 減分</span>
+                                </div>
+                            </div>
+                            <div className="flex flex-col items-center">
+                                <div className="relative w-32 h-32 rounded-full flex items-center justify-center"
+                                     style={{ background: `conic-gradient(#4F46E5 ${stats.progress}%, #F3F4F6 0)` }}>
+                                    <div className="w-24 h-24 bg-white rounded-full flex flex-col items-center justify-center">
+                                        <span className="text-2xl font-bold text-slate-800">{stats.progress}%</span>
+                                        <span className="text-[10px] text-slate-400 uppercase">Completed</span>
+                                    </div>
+                                </div>
+                                <div className="mt-4 text-sm font-bold text-slate-500">
+                                    {stats.missing.Total > 0 ? (
+                                        <span className="text-red-600 font-black bg-red-50 px-3 py-1 rounded-full">還有 {stats.missing.Total} 題未填答</span>
+                                    ) : (
+                                        <span className="text-emerald-600 font-bold">已全數完成</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {['E', 'S', 'G'].map(cat => {
+                            const cfg = CATEGORY_CONFIG[cat];
+                            const Icon = cfg.icon;
+                            return (
+                                <div key={cat} className={`bg-white rounded-xl p-6 shadow-sm border border-slate-100 relative overflow-hidden`}>
+                                    <div className={`w-10 h-10 rounded-lg ${cfg.bg} ${cfg.text} flex items-center justify-center mb-4`}>
+                                        <Icon size={20} />
+                                    </div>
+                                    <h3 className="text-slate-500 text-sm font-bold">{cfg.name}</h3>
+                                    <div className="text-2xl font-bold text-slate-900 mt-1">{stats.weighted[cat]}</div>
+                                    <div className="text-xs text-slate-400 mt-2 flex justify-between">
+                                        <span>權重 {WEIGHTS[cat]*100}%</span>
+                                        <span>{stats.missing[cat] > 0 ? <span className="text-red-500 font-bold">{stats.missing[cat]} 題未填</span> : "完成"}</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+
+            const renderList = (cat) => {
+                if (cat === 'P') {
+                    return penaltyItems.map(item => {
+                        const ans = penaltyAnswers[item.id] || { isViolated: false, note: "" };
+                        const cfg = CATEGORY_CONFIG['P'];
+                        return (
+                            <div key={item.id} className={`bg-white border rounded-xl p-6 mb-4 transition-all ${ans.isViolated ? 'border-rose-400 shadow-md bg-rose-50/30' : 'border-slate-200'}`}>
+                                <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${cfg.bg} ${cfg.text} border ${cfg.border}`}>{item.id}</span>
+                                            <span className="bg-slate-800 text-white text-xs font-bold px-2 py-0.5 rounded">扣 {item.point} 分</span>
+                                        </div>
+                                        <h4 className="font-bold text-slate-900 text-lg">{item.title}</h4>
+                                        <p className="text-sm text-slate-600 mt-1">{item.content}</p>
+                                    </div>
+                                    <div className="flex bg-slate-100 p-1 rounded-lg shrink-0">
+                                        <button onClick={() => setPenaltyAnswers(p => ({...p, [item.id]: {...p[item.id], isViolated: false}}))} 
+                                            className={`px-4 py-2 rounded text-sm font-bold transition-all ${!ans.isViolated ? 'bg-white shadow text-emerald-600' : 'text-slate-400'}`}>
+                                            無違規
+                                        </button>
+                                        <button onClick={() => setPenaltyAnswers(p => ({...p, [item.id]: {...p[item.id], isViolated: true}}))} 
+                                            className={`px-4 py-2 rounded text-sm font-bold transition-all ${ans.isViolated ? 'bg-white shadow text-rose-600' : 'text-slate-400'}`}>
+                                            有違規
+                                        </button>
+                                    </div>
+                                </div>
+                                {ans.isViolated && (
+                                    <div className="mt-4 pt-4 border-t border-rose-200 animate-fade-in">
+                                        <label className="block text-xs font-bold text-rose-700 mb-2">⚠️ 違規說明 / 改善措施 (必填)：</label>
+                                        <textarea 
+                                            className="w-full p-3 border border-rose-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500 focus:outline-none bg-white"
+                                            rows="3"
+                                            placeholder="請說明違規事項及具體改善計畫..."
+                                            value={ans.note || ""}
+                                            onChange={(e) => setPenaltyAnswers(p => ({...p, [item.id]: {...p[item.id], note: e.target.value}}))}
+                                        ></textarea>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    });
+                }
+
+                const list = indicators.filter(i => i.category === cat && (
+                    i.title.includes(searchTerm) || i.fullContent.includes(searchTerm) || i.id.includes(searchTerm)
+                )).filter(i => !showUnansweredOnly || answers[i.id]?.compliance === null);
+
+                if (list.length === 0) return <div className="text-center py-10 text-slate-400 bg-white rounded-xl border border-slate-200">無符合指標</div>;
+
+                return list.map(item => {
+                    const ans = answers[item.id] || {};
+                    const isExpanded = expandedId === item.id;
+                    const cfg = CATEGORY_CONFIG[item.category];
+
+                    return (
+                        <div key={item.id} className={`bg-white border rounded-xl mb-4 transition-all duration-200 ${ans.compliance === true ? `border-${cfg.color}-400 shadow-sm` : ans.compliance === false ? 'border-slate-300 bg-slate-50/50' : 'border-slate-200 hover:border-indigo-300'}`}>
+                            <div className="p-5 cursor-pointer flex flex-col md:flex-row gap-4 items-start" onClick={() => setExpandedId(isExpanded ? null : item.id)}>
+                                <div className={`w-12 h-12 rounded-lg flex-shrink-0 flex flex-col items-center justify-center font-bold text-sm border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+                                    <span>{item.id}</span>
+                                </div>
+                                
+                                <div className="flex-1">
+                                    <div className="flex flex-wrap gap-2 mb-1.5 items-center">
+                                        {item.oldId && <span className="bg-slate-100 text-slate-500 text-[10px] font-medium px-2 py-0.5 rounded border border-slate-200">前屆: {item.oldId}</span>}
+                                        {item.isNew && <span className="bg-rose-100 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded border border-rose-200">New</span>}
+                                        {item.type.includes("A+") && <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-200">A+ Bonus</span>}
+                                    </div>
+                                    <h4 className="font-bold text-slate-900 text-base leading-snug mb-1">{item.title}</h4>
+                                    <p className="text-sm text-slate-500 line-clamp-2">{item.fullContent}</p>
+                                </div>
+
+                                <div className="flex gap-2 shrink-0" onClick={e => e.stopPropagation()}>
+                                    <button onClick={() => setAnswers(p => ({...p, [item.id]: {...p[item.id], compliance: true}}))}
+                                        className={`px-4 py-2 rounded-lg text-sm font-bold border transition-all flex items-center gap-1 ${ans.compliance === true ? `bg-${cfg.color}-600 text-white border-${cfg.color}-600 shadow-md` : `bg-white text-slate-400 hover:border-${cfg.color}-300`}`}>
+                                        <CheckCircle size={16}/> 符合
+                                    </button>
+                                    <button onClick={() => setAnswers(p => ({...p, [item.id]: {...p[item.id], compliance: false, extraCredit: false}}))}
+                                        className={`px-4 py-2 rounded-lg text-sm font-bold border transition-all flex items-center gap-1 ${ans.compliance === false ? 'bg-slate-600 text-white border-slate-600 shadow-md' : 'bg-white text-slate-400 hover:border-slate-300'}`}>
+                                        <XCircle size={16}/> 未達成
+                                    </button>
+                                </div>
+                            </div>
+
+                            {isExpanded && (
+                                <div className="px-6 pb-6 pt-0 animate-fade-in">
+                                    <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 space-y-4">
+                                        <div className="flex gap-3 items-start">
+                                            <Info size={18} className="mt-1 flex-shrink-0 text-indigo-500" />
+                                            <div className="text-sm text-slate-700 leading-relaxed w-full">
+                                                <p className="font-bold text-slate-900 mb-1">指標完整內容與說明：</p>
+                                                <div className="whitespace-pre-wrap mb-2">{item.fullContent}</div>
+                                                <hr className="border-slate-200 my-2"/>
+                                                <div className="whitespace-pre-wrap text-slate-600">{item.note}</div>
+                                                
+                                                {item.evidenceSource && (
+                                                    <div className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-500 bg-white px-3 py-2 rounded border border-slate-200 inline-block">
+                                                        <BookOpen size={14}/> 評鑑資訊依據：{item.evidenceSource}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="pl-8">
+                                            <label className="block text-xs font-bold text-slate-600 mb-2">📝 自評說明 / 佐證資料連結：</label>
+                                            <textarea 
+                                                className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                                                rows="2"
+                                                placeholder="請輸入佐證頁碼、連結或內部說明..."
+                                                value={ans.userNote || ""}
+                                                onChange={(e) => setAnswers(p => ({...p, [item.id]: {...p[item.id], userNote: e.target.value}}))}
+                                            ></textarea>
+                                        </div>
+
+                                        {item.type.includes("A+") && (
+                                            <div className={`mt-4 p-4 rounded-lg border transition-all ${ans.compliance ? 'bg-amber-50 border-amber-200' : 'bg-slate-100 border-slate-200 opacity-60'}`}>
+                                                <label className="flex items-center gap-2 cursor-pointer mb-3">
+                                                    <input type="checkbox" checked={ans.extraCredit} disabled={!ans.compliance}
+                                                        onChange={e => setAnswers(p => ({...p, [item.id]: {...p[item.id], extraCredit: e.target.checked}}))}
+                                                        className="w-5 h-5 text-amber-600 rounded focus:ring-amber-500 border-gray-300 cursor-pointer" />
+                                                    <span className={`font-bold ${ans.compliance ? 'text-amber-800' : 'text-slate-500'}`}>符合進階加分條件 (+1分)</span>
+                                                </label>
+                                                
+                                                {item.bonusCriteria && <div className="ml-7 mb-3 text-xs text-amber-800 bg-white/50 p-2 rounded border border-amber-100"><strong>條件：</strong>{item.bonusCriteria}</div>}
+                                                
+                                                {ans.extraCredit && (
+                                                    <div className="ml-7 animate-fade-in">
+                                                        <label className="block text-xs font-bold text-amber-700 mb-1">➕ 進階加分達成情形說明：</label>
+                                                        <textarea 
+                                                            className="w-full p-2 border border-amber-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
+                                                            rows="2"
+                                                            placeholder="請說明符合加分條件之具體作為..."
+                                                            value={ans.extraCreditNote || ""}
+                                                            onChange={(e) => setAnswers(p => ({...p, [item.id]: {...p[item.id], extraCreditNote: e.target.value}}))}
+                                                        ></textarea>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                });
+            };
+
+            if (!hasData) return (
+                <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50">
+                    <div className="max-w-4xl w-full text-center">
+                        <h1 className="text-3xl font-black text-slate-800 mb-2">115年度 ESG 評鑑自評系統</h1>
+                        <p className="text-slate-500 mb-10">遵循證交所發布之最新指標，協助企業進行高效自評</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+                            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all text-center group cursor-pointer" onClick={handleDownloadTemplate}>
+                                <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                                    <DownloadCloud size={32} />
+                                </div>
+                                <h3 className="font-bold text-lg text-slate-900">1. 下載指標原始檔</h3>
+                                <p className="text-xs text-slate-400 mt-2">本系統為純前端運作，請下載 CSV 檔案後，匯入以生成題目。</p>
+                            </div>
+                            <div className="bg-white p-8 rounded-2xl border border-emerald-200 shadow-md hover:shadow-lg transition-all text-center group cursor-pointer relative overflow-hidden" onClick={() => fileInputRef.current.click()}>
+                                <div className="absolute top-0 right-0 bg-emerald-600 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">START</div>
+                                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                                    <Upload size={32} />
+                                </div>
+                                <h3 className="font-bold text-lg text-slate-900">2. 匯入 CSV 或進度檔</h3>
+                                <p className="text-xs text-slate-400 mt-2">支援 .csv (題目) 或 .json (進度)</p>
+                            </div>
+                        </div>
+                        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".csv,.txt,.json" />
+
+                        {/* 資料來源與版權聲明 - 僅在起始畫面顯示 */}
+                        <div className="mt-16 max-w-2xl mx-auto text-[11px] text-slate-400 leading-relaxed border-t border-slate-200 pt-6">
+                            <p className="mb-2 font-bold text-slate-500">
+                                資料來源與版權聲明
+                            </p>
+                            <p>
+                                本系統之評鑑指標、權重配分與評核標準，皆依據 <a href="https://cgc.twse.com.tw/esgEvaluation/listCh" target="_blank" className="hover:text-slate-600 underline decoration-slate-300 underline-offset-2 transition-colors">臺灣證券交易所公司治理中心 (Corporate Governance Center, TWSE)</a> 公布之《115年度 ESG 評鑑系統作業手冊》及相關修正說明辦理。
+                            </p>
+                            <p className="mt-1">
+                                相關資料版權歸屬臺灣證券交易所所有，本系統僅提供輔助自評功能。
+                            </p>
+                        </div>
+                    </div>
+                    {/* Bot 在 Empty State 也要顯示 */}
+                    <HelperBot />
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen bg-slate-50/50 pb-12">
+                    <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm/50 backdrop-blur-md bg-white/90">
+                        <div className="max-w-5xl mx-auto px-4">
+                            <div className="flex justify-between h-16 items-center">
+                                <div className="flex items-center gap-3 font-bold text-slate-800">
+                                    <div className="bg-emerald-600 text-white p-1.5 rounded-lg"><FileText size={20}/></div>
+                                    115年度 ESG 評鑑
+                                </div>
+                                <div className="flex gap-2 text-sm font-medium text-slate-500">
+                                    <button onClick={handleSaveProgress} className="hover:text-emerald-600 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 shadow-sm transition-all">
+                                        <Save size={14}/> 儲存進度
+                                    </button>
+                                    <button onClick={handleExportCSV} className="hover:text-emerald-600 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 shadow-sm transition-all">
+                                        <HardDriveDownload size={14}/> 匯出報表
+                                    </button>
+                                    <button onClick={() => {if(confirm('確定要重置並重新匯入嗎？未儲存的資料將會遺失。')) window.location.reload()}} className="hover:text-rose-600 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-rose-50 transition-all text-slate-400" title="重置系統">
+                                        <LogOut size={14}/>
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="flex gap-6 overflow-x-auto no-scrollbar">
+                                {['dashboard', 'E', 'S', 'G', 'P'].map(tab => {
+                                    const cfg = CATEGORY_CONFIG[tab] || {name: "總覽", color: "slate"};
+                                    const isActive = activeTab === tab;
+                                    const activeClass = isActive ? `border-${cfg.color}-500 text-${cfg.color}-700` : 'border-transparent text-slate-400 hover:text-slate-600';
+                                    return (
+                                        <button key={tab} onClick={() => setActiveTab(tab)} 
+                                            className={`pb-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${activeClass}`}>
+                                            {tab === 'dashboard' ? '總覽儀表板' : cfg.name}
+                                            {stats.missing[tab] > 0 && <span className="bg-rose-100 text-rose-600 text-[10px] px-1.5 rounded-full">{stats.missing[tab]}</span>}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </header>
+                    
+                    <main className="max-w-5xl mx-auto px-4 py-8">
+                        {activeTab === 'dashboard' ? renderDashboard() : (
+                            <div className="animate-fade-in">
+                                <div className="flex justify-between items-center mb-6">
+                                    <div className="relative w-full md:w-64">
+                                        <Search className="absolute left-3 top-2.5 text-slate-400" size={16}/>
+                                        <input type="text" placeholder="搜尋..." className="pl-9 w-full py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/>
+                                    </div>
+                                    <label className="flex items-center gap-2 text-sm font-bold text-slate-600 cursor-pointer">
+                                        <input type="checkbox" checked={showUnansweredOnly} onChange={e => setShowUnansweredOnly(e.target.checked)} className="accent-emerald-600"/>
+                                        只顯示未填答
+                                    </label>
+                                </div>
+                                {renderList(activeTab)}
+                            </div>
+                        )}
+                    </main>
+
+                    <footer className="border-t border-slate-200 py-8 text-center text-slate-400 text-xs">
+                        <div className="flex items-center justify-center gap-1 mb-2">
+                            <Info size={12} /> 資料來源：
+                            <a href="https://cgc.twse.com.tw/esgEvaluation/listCh" target="_blank" className="text-emerald-600 hover:underline">臺灣證券交易所公司治理中心</a>
+                        </div>
+                        © 115年度 ESG 評鑑自評系統
+                    </footer>
+                    
+                    <HelperBot />
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".csv,.txt,.json" />
+                </div>
+            );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<ESGSystem />);
+    </script>
+</body>
+</html>
