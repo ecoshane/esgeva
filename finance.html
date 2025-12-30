@@ -47,7 +47,7 @@
     <script type="text/babel" data-type="module">
         import React, { useState, useEffect, useMemo, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
-        import { Eye, CheckCircle, XCircle, FileText, Save, Upload, PieChart, Building2, ExternalLink, AlertCircle, Search, DownloadCloud, BookOpen, Bot, MessageCircle, X, LogOut, Square, CheckSquare, RotateCcw } from 'lucide-react';
+        import { Eye, CheckCircle, XCircle, FileText, Save, Upload, PieChart, Building2, ExternalLink, AlertCircle, Search, DownloadCloud, BookOpen, Bot, MessageCircle, X, LogOut, Square, CheckSquare, RotateCcw, HelpCircle, AlertTriangle } from 'lucide-react';
 
         // --- 內建完整版 CSV (根據第四屆永續金融評鑑說明 PDF 完整提取) ---
         // 包含所有共同指標與分業指標
@@ -248,10 +248,10 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
 
         // 分類設定 (I=Integrated 綜合/永續發展)
         const CATEGORY_CONFIG = {
-            I: { name: "綜合發展 (Integrated)", icon: PieChart, color: "indigo", bg: "bg-indigo-100", text: "text-indigo-700", border: "border-indigo-200" },
-            E: { name: "環境支柱 (Environment)", icon: BookOpen, color: "emerald", bg: "bg-emerald-100", text: "text-emerald-700", border: "border-emerald-200" },
-            S: { name: "社會支柱 (Social)", icon: Building2, color: "sky", bg: "bg-sky-100", text: "text-sky-700", border: "border-sky-200" },
-            G: { name: "治理支柱 (Governance)", icon: Eye, color: "violet", bg: "bg-violet-100", text: "text-violet-700", border: "border-violet-200" }
+            I: { name: "綜合指標 (Comprehensive)", icon: PieChart, color: "indigo", bg: "bg-indigo-100", text: "text-indigo-700", border: "border-indigo-200" },
+            E: { name: "環境 (Environment)", icon: BookOpen, color: "emerald", bg: "bg-emerald-100", text: "text-emerald-700", border: "border-emerald-200" },
+            S: { name: "社會 (Social)", icon: Building2, color: "sky", bg: "bg-sky-100", text: "text-sky-700", border: "border-sky-200" },
+            G: { name: "公司治理 (Governance)", icon: Eye, color: "violet", bg: "bg-violet-100", text: "text-violet-700", border: "border-violet-200" }
         };
 
         const SECTORS = [
@@ -263,10 +263,10 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
 
         // 機器人問答題庫 (FAQ Data)
         const BOT_FAQ = [
-            { id: 'q1', label: '評鑑分數如何計算？', answer: '根據第四屆永續金融評鑑，四大支柱權重分配為：\n綜合發展(I)：25%\n環境支柱(E)：25%\n社會支柱(S)：25%\n治理支柱(G)：25%\n\n每個指標皆有不同權重，詳情請參考各分類指標。' },
+            { id: 'q1', label: '評鑑分數如何計算？', answer: '根據第四屆永續金融評鑑，四大構面權重分配為：\n綜合指標(I)：25%\n環境(E)：25%\n社會(S)：25%\n公司治理(G)：25%\n\n每個指標皆有不同權重，詳情請參考各分類指標。' },
             { id: 'q2', label: '資料如何儲存？', answer: '本系統為「純前端」運作，資料只儲存在您的瀏覽器中，不會上傳伺服器。請務必定期使用「儲存紀錄」下載 JSON 檔備份。' },
             { id: 'q3', label: '適用哪些金融業？', answer: '本系統涵蓋：\n1. 銀行業\n2. 保險業\n3. 證券/投信業\n\n您可以在上方切換「適用業別」來篩選對應的指標。' },
-            { id: 'q4', label: '如何開始使用？', answer: '1. 輸入「觀測對象」名稱\n2. 選擇「適用業別」\n3. 在各分類中勾選觀測到的指標，並填寫來源連結(如年報頁碼)。' },
+            { id: 'q4', label: '狀態如何使用？', answer: '● 得分：符合指標要求且有佐證。\n● 不得分：已確認未揭露或不符標準。\n● 待確認：資料不足或尚有疑義。' },
             { id: 'q5', label: '如何匯入之前的進度？', answer: '請在首頁點擊「2. 匯入指標或紀錄」，選擇您之前下載的 JSON 檔案，即可恢復進度。' },
         ];
 
@@ -527,16 +527,19 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
                 
                 let raw = { I: 0, E: 0, S: 0, G: 0 };
                 let total = { I: 0, E: 0, S: 0, G: 0 };
-                let observedCount = 0;
+                let processedCount = 0; // 已處理的數量 (得分 + 不得分 + 待確認)
 
                 relevantIndicators.forEach(item => {
                     const obs = observations[item.uid]; // 使用 uid
                     if (total[item.category] !== undefined) total[item.category]++;
                     
-                    // 只有當明確標記為 "Observed (True)" 才算分
-                    if (obs?.isObserved === true) {
-                        if (raw[item.category] !== undefined) raw[item.category]++;
-                        observedCount++;
+                    // 只要有任何狀態 (score, no_score, pending) 都算已處理
+                    if (obs?.status) {
+                        processedCount++;
+                        // 只有 status === 'score' 才算分
+                        if (obs.status === 'score') {
+                            if (raw[item.category] !== undefined) raw[item.category]++;
+                        }
                     }
                 });
 
@@ -552,7 +555,7 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
                         G: score('G').toFixed(1),
                         Total: finalScore.toFixed(1)
                     },
-                    progress: relevantIndicators.length > 0 ? Math.round((observedCount / relevantIndicators.length) * 100) : 0,
+                    progress: relevantIndicators.length > 0 ? Math.round((processedCount / relevantIndicators.length) * 100) : 0,
                     relevantCount: relevantIndicators.length
                 };
             }, [indicators, observations, targetSector]);
@@ -616,7 +619,7 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
                                         <h3 className="text-slate-500 text-xs font-bold uppercase mb-1">{cfg.name}</h3>
                                         <div className="text-2xl font-bold text-slate-800">{stats.scores[cat]}</div>
                                         <div className="text-xs text-slate-400 mt-1">
-                                            已觀測 {stats.raw[cat]} / {stats.total[cat]} 項
+                                            已得分 {stats.raw[cat]} / {stats.total[cat]} 項
                                         </div>
                                     </div>
                                 </div>
@@ -643,51 +646,93 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
                             const cfg = CATEGORY_CONFIG[item.category];
                             const isExpanded = expandedId === item.uid;
 
+                            // 狀態按鈕邏輯
+                            const handleStatusChange = (newStatus) => {
+                                setObservations(prev => {
+                                    const current = prev[item.uid] || {};
+                                    // 如果點擊當前狀態，則取消 (設為 null)，否則設為新狀態
+                                    const nextStatus = current.status === newStatus ? null : newStatus;
+                                    return {
+                                        ...prev,
+                                        [item.uid]: { ...current, status: nextStatus }
+                                    };
+                                });
+                            };
+
+                            // 定義狀態樣式
+                            const getStatusStyle = (type) => {
+                                const isActive = obs.status === type;
+                                if (type === 'score') {
+                                    return isActive 
+                                        ? 'bg-emerald-500 text-white border-emerald-500 shadow-md ring-2 ring-emerald-200' 
+                                        : 'bg-white text-slate-400 border-slate-200 hover:border-emerald-300 hover:text-emerald-500';
+                                }
+                                if (type === 'no_score') {
+                                    return isActive 
+                                        ? 'bg-rose-500 text-white border-rose-500 shadow-md ring-2 ring-rose-200' 
+                                        : 'bg-white text-slate-400 border-slate-200 hover:border-rose-300 hover:text-rose-500';
+                                }
+                                if (type === 'pending') {
+                                    return isActive 
+                                        ? 'bg-amber-500 text-white border-amber-500 shadow-md ring-2 ring-amber-200' 
+                                        : 'bg-white text-slate-400 border-slate-200 hover:border-amber-300 hover:text-amber-500';
+                                }
+                            };
+
+                            // 卡片邊框顏色
+                            let cardBorderClass = 'border-slate-200 hover:border-slate-300';
+                            if (obs.status === 'score') cardBorderClass = 'border-emerald-500 shadow-sm ring-1 ring-emerald-500 bg-emerald-50/10';
+                            if (obs.status === 'no_score') cardBorderClass = 'border-rose-300 shadow-sm bg-rose-50/10';
+                            if (obs.status === 'pending') cardBorderClass = 'border-amber-300 shadow-sm bg-amber-50/10';
+
                             return (
-                                <div key={item.uid} className={`bg-white border rounded-xl transition-all ${obs.isObserved ? 'border-emerald-500 shadow-md ring-1 ring-emerald-500' : 'border-slate-200 hover:border-slate-300'}`}>
+                                <div key={item.uid} className={`bg-white border rounded-xl transition-all ${cardBorderClass}`}>
                                     <div className="p-5">
-                                        <div className="flex gap-4 items-start cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : item.uid)}>
-                                            <div className={`shrink-0 w-24 text-center`}>
-                                                <span className={`block text-xs font-bold px-2 py-1 rounded ${cfg.bg} ${cfg.text} whitespace-nowrap`}>{item.id}</span>
+                                        <div className="flex flex-col sm:flex-row gap-4 items-start cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : item.uid)}>
+                                            <div className={`shrink-0 w-24 text-center sm:text-left`}>
+                                                <span className={`inline-block text-xs font-bold px-2 py-1 rounded ${cfg.bg} ${cfg.text} whitespace-nowrap`}>{item.id}</span>
                                                 <span className="block text-[10px] text-slate-400 mt-1">{item.sector}</span>
                                             </div>
-                                            <div className="flex-1">
+                                            <div className="flex-1 w-full">
                                                 <h4 className="font-bold text-slate-800 mb-1">{item.title}</h4>
-                                                <div className="flex items-center gap-2 text-xs text-slate-500">
+                                                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                                                     <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1">
                                                         <Search size={10} /> 建議來源：{item.source || "公開資訊"}
                                                     </span>
                                                 </div>
                                             </div>
-                                            <div onClick={e => e.stopPropagation()}>
+                                            <div onClick={e => e.stopPropagation()} className="flex gap-2 shrink-0 self-end sm:self-center mt-2 sm:mt-0">
                                                 <button 
-                                                    type="button" 
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setObservations(prev => {
-                                                            const current = prev[item.uid] || {}; // 使用 uid
-                                                            return {
-                                                                ...prev,
-                                                                [item.uid]: { ...current, isObserved: !current.isObserved }
-                                                            };
-                                                        });
-                                                    }}
-                                                    className={`flex items-center gap-2 pl-3 pr-4 py-2 rounded-full border-2 transition-all shadow-sm ${
-                                                        obs.isObserved 
-                                                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700' 
-                                                        : 'border-slate-300 bg-white text-slate-500 hover:border-indigo-400 hover:text-indigo-600'
-                                                    }`}
-                                                    title={obs.isObserved ? "點擊以取消觀測" : "點擊標記為已觀測"}
+                                                    type="button"
+                                                    onClick={(e) => { e.stopPropagation(); handleStatusChange('score'); }}
+                                                    className={`p-2 rounded-lg border transition-all flex items-center justify-center gap-1.5 text-xs font-bold w-24 ${getStatusStyle('score')}`}
+                                                    title="符合要求，予以計分"
                                                 >
-                                                    {obs.isObserved ? <CheckCircle size={20} className="fill-emerald-500 text-white" /> : <div className="w-5 h-5 rounded-full border-2 border-slate-300" />}
-                                                    <span className="font-bold text-sm">{obs.isObserved ? "已觀測" : "點擊標記"}</span>
+                                                    <CheckCircle size={16} /> 得分
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    onClick={(e) => { e.stopPropagation(); handleStatusChange('no_score'); }}
+                                                    className={`p-2 rounded-lg border transition-all flex items-center justify-center gap-1.5 text-xs font-bold w-24 ${getStatusStyle('no_score')}`}
+                                                    title="不符要求或未揭露，不予計分"
+                                                >
+                                                    <XCircle size={16} /> 不得分
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    onClick={(e) => { e.stopPropagation(); handleStatusChange('pending'); }}
+                                                    className={`p-2 rounded-lg border transition-all flex items-center justify-center gap-1.5 text-xs font-bold w-24 ${getStatusStyle('pending')}`}
+                                                    title="資料不足或有疑義，待確認"
+                                                >
+                                                    <HelpCircle size={16} /> 待確認
                                                 </button>
                                             </div>
                                         </div>
 
                                         {isExpanded && (
-                                            <div className="mt-4 pt-4 border-t border-slate-100 pl-24 animate-fade-in">
-                                                <div className="mb-4 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                            <div className="mt-4 pt-4 border-t border-slate-100 sm:pl-24 animate-fade-in">
+                                                {/* 修改1: 加入 w-fit max-w-full 讓說明條符合文字長度，不要太長 */}
+                                                <div className="mb-4 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200 w-fit max-w-full">
                                                     <span className="font-bold text-slate-800">ℹ️ 指標說明：</span> {item.note}
                                                 </div>
                                                 
@@ -695,10 +740,12 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
                                                     <div>
                                                         <label className="block text-xs font-bold text-slate-500 mb-1">公開揭露來源連結 (URL / 頁碼)</label>
                                                         <div className="relative">
-                                                            <ExternalLink className="absolute top-2.5 left-3 text-slate-400" size={14} />
-                                                            <input 
-                                                                type="text" 
-                                                                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                                            {/* 修改2: Icon 位置微調以配合多行輸入框 */}
+                                                            <ExternalLink className="absolute top-3 left-3 text-slate-400" size={14} />
+                                                            {/* 修改3: 改為 textarea 並設定 rows="2" */}
+                                                            <textarea 
+                                                                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"
+                                                                rows="2"
                                                                 placeholder="例：2024永續報告書 p.45"
                                                                 value={obs.evidenceLink || ""}
                                                                 onChange={(e) => setObservations(prev => ({...prev, [item.uid]: { ...prev[item.uid], evidenceLink: e.target.value }}))}
@@ -707,9 +754,10 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
                                                     </div>
                                                     <div>
                                                         <label className="block text-xs font-bold text-slate-500 mb-1">第三方觀測筆記</label>
-                                                        <input 
-                                                            type="text" 
-                                                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                                        {/* 修改4: 改為 textarea 並設定 rows="2" */}
+                                                        <textarea 
+                                                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"
+                                                            rows="2"
                                                             placeholder="例：有揭露，但數據不完整..."
                                                             value={obs.note || ""}
                                                             onChange={(e) => setObservations(prev => ({...prev, [item.uid]: { ...prev[item.uid], note: e.target.value }}))}
@@ -745,7 +793,7 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
                                     <DownloadCloud size={24} />
                                 </div>
                                 <h3 className="text-lg font-bold text-slate-800 mb-2">1. 下載觀測指標範本</h3>
-                                <p className="text-slate-500 text-sm">取得預設的評鑑指標 CSV 檔（包含綜合、環境、社會、治理四大支柱）。</p>
+                                <p className="text-slate-500 text-sm">取得預設的評鑑指標 CSV 檔（包含綜合、環境、社會、治理四大構面）。</p>
                             </button>
 
                             <button onClick={() => fileInputRef.current.click()} className="group bg-white p-8 rounded-2xl border border-indigo-200 shadow-sm hover:shadow-lg transition-all hover:-translate-y-1 relative overflow-hidden">
