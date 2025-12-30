@@ -47,7 +47,7 @@
     <script type="text/babel" data-type="module">
         import React, { useState, useEffect, useMemo, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
-        import { Eye, CheckCircle, XCircle, FileText, Save, Upload, PieChart, Building2, ExternalLink, AlertCircle, Search, DownloadCloud, BookOpen, Bot, MessageCircle, X, LogOut, Square, CheckSquare } from 'lucide-react';
+        import { Eye, CheckCircle, XCircle, FileText, Save, Upload, PieChart, Building2, ExternalLink, AlertCircle, Search, DownloadCloud, BookOpen, Bot, MessageCircle, X, LogOut, Square, CheckSquare, RotateCcw } from 'lucide-react';
 
         // --- 內建完整版 CSV (根據第四屆永續金融評鑑說明 PDF 完整提取) ---
         // 包含所有共同指標與分業指標
@@ -475,7 +475,7 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
                 try {
                     const rows = parseCSV(csvText);
                     // 假設第一行是標題，從第二行開始
-                    const newIndicators = rows.slice(1).map((cols) => {
+                    const newIndicators = rows.slice(1).map((cols, idx) => {
                         if (cols.length < 3) return null;
                         const id = cols[0];
                         const sector = cols[1] || "共同";
@@ -483,7 +483,11 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
                         const note = cols[3] || "";
                         const source = cols[4] || "";
                         
+                        // 生成唯一ID：編號 + 業別 + 索引 (避免同編號不同題目的衝突)
+                        const uid = `${id}-${sector}-${idx}`;
+
                         return {
+                            uid,
                             id,
                             sector,
                             category: getCategory(id),
@@ -526,7 +530,7 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
                 let observedCount = 0;
 
                 relevantIndicators.forEach(item => {
-                    const obs = observations[item.id];
+                    const obs = observations[item.uid]; // 使用 uid
                     if (total[item.category] !== undefined) total[item.category]++;
                     
                     // 只有當明確標記為 "Observed (True)" 才算分
@@ -634,16 +638,17 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
                 return (
                     <div className="space-y-4">
                         {list.map(item => {
-                            const obs = observations[item.id] || {};
+                            // 使用 uid 作為 Key，避免重複 ID 導致 React 渲染錯誤
+                            const obs = observations[item.uid] || {};
                             const cfg = CATEGORY_CONFIG[item.category];
-                            const isExpanded = expandedId === item.id;
+                            const isExpanded = expandedId === item.uid;
 
                             return (
-                                <div key={item.id} className={`bg-white border rounded-xl transition-all ${obs.isObserved ? 'border-emerald-500 shadow-md ring-1 ring-emerald-500' : 'border-slate-200 hover:border-slate-300'}`}>
+                                <div key={item.uid} className={`bg-white border rounded-xl transition-all ${obs.isObserved ? 'border-emerald-500 shadow-md ring-1 ring-emerald-500' : 'border-slate-200 hover:border-slate-300'}`}>
                                     <div className="p-5">
-                                        <div className="flex gap-4 items-start cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : item.id)}>
+                                        <div className="flex gap-4 items-start cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : item.uid)}>
                                             <div className={`shrink-0 w-24 text-center`}>
-                                                <span className={`block text-xs font-bold px-2 py-1 rounded ${cfg.bg} ${cfg.text} break-keep whitespace-nowrap`}>{item.id}</span>
+                                                <span className={`block text-xs font-bold px-2 py-1 rounded ${cfg.bg} ${cfg.text} whitespace-nowrap`}>{item.id}</span>
                                                 <span className="block text-[10px] text-slate-400 mt-1">{item.sector}</span>
                                             </div>
                                             <div className="flex-1">
@@ -656,29 +661,26 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
                                             </div>
                                             <div onClick={e => e.stopPropagation()}>
                                                 <button 
+                                                    type="button" 
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setObservations(prev => {
-                                                            const current = prev[item.id] || {};
+                                                            const current = prev[item.uid] || {}; // 使用 uid
                                                             return {
                                                                 ...prev,
-                                                                [item.id]: { ...current, isObserved: !current.isObserved }
+                                                                [item.uid]: { ...current, isObserved: !current.isObserved }
                                                             };
                                                         });
                                                     }}
-                                                    className={`flex items-center gap-2 pl-3 pr-4 py-2 rounded-full border-2 transition-all duration-200 group ${
+                                                    className={`flex items-center gap-2 pl-3 pr-4 py-2 rounded-full border-2 transition-all shadow-sm ${
                                                         obs.isObserved 
                                                         ? 'border-emerald-500 bg-emerald-50 text-emerald-700' 
-                                                        : 'border-slate-200 bg-white text-slate-400 hover:border-indigo-300 hover:text-indigo-500'
+                                                        : 'border-slate-300 bg-white text-slate-500 hover:border-indigo-400 hover:text-indigo-600'
                                                     }`}
                                                     title={obs.isObserved ? "點擊以取消觀測" : "點擊標記為已觀測"}
                                                 >
-                                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
-                                                        obs.isObserved ? 'bg-emerald-500 text-white group-hover:bg-emerald-600' : 'bg-slate-100 text-slate-300 group-hover:bg-indigo-100 group-hover:text-indigo-500'
-                                                    }`}>
-                                                        {obs.isObserved ? <CheckCircle size={16} strokeWidth={3} /> : <div className="w-2 h-2 rounded-full bg-current opacity-50" />}
-                                                    </div>
-                                                    <span className="font-bold text-sm tracking-wide">{obs.isObserved ? "已觀測" : "標記"}</span>
+                                                    {obs.isObserved ? <CheckCircle size={20} className="fill-emerald-500 text-white" /> : <div className="w-5 h-5 rounded-full border-2 border-slate-300" />}
+                                                    <span className="font-bold text-sm">{obs.isObserved ? "已觀測" : "點擊標記"}</span>
                                                 </button>
                                             </div>
                                         </div>
@@ -699,7 +701,7 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
                                                                 className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                                                                 placeholder="例：2024永續報告書 p.45"
                                                                 value={obs.evidenceLink || ""}
-                                                                onChange={(e) => setObservations(prev => ({...prev, [item.id]: { ...prev[item.id], evidenceLink: e.target.value }}))}
+                                                                onChange={(e) => setObservations(prev => ({...prev, [item.uid]: { ...prev[item.uid], evidenceLink: e.target.value }}))}
                                                             />
                                                         </div>
                                                     </div>
@@ -710,7 +712,7 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
                                                             className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                                                             placeholder="例：有揭露，但數據不完整..."
                                                             value={obs.note || ""}
-                                                            onChange={(e) => setObservations(prev => ({...prev, [item.id]: { ...prev[item.id], note: e.target.value }}))}
+                                                            onChange={(e) => setObservations(prev => ({...prev, [item.uid]: { ...prev[item.uid], note: e.target.value }}))}
                                                         />
                                                     </div>
                                                 </div>
@@ -794,8 +796,8 @@ G4-4-1,證券/投信業,"董監事及經理人績效評估與酬金是否有適�
                             <button onClick={handleSave} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold hover:bg-indigo-100 transition-colors">
                                 <Save size={16} /> <span className="hidden md:inline">儲存紀錄</span>
                             </button>
-                            <button onClick={() => {if(confirm('確定要重置並重新匯入嗎？未儲存的資料將會遺失。')) window.location.reload()}} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="重置系統">
-                                <LogOut size={18} />
+                            <button onClick={() => {if(confirm('確定要重置並重新匯入嗎？未儲存的資料將會遺失。')) window.location.reload()}} className="flex items-center gap-1 px-3 py-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors font-bold text-sm" title="重置系統">
+                                <RotateCcw size={16} /> 重置
                             </button>
                         </div>
                     </header>
