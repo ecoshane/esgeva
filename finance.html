@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>第四屆永續金融評鑑 - 第三方公開揭露觀測系統</title>
+    
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 設定 Import Map -->
+    <script type="importmap">
+        {
+            "imports": {
+                "react": "https://esm.sh/react@18.2.0",
+                "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+                "lucide-react": "https://esm.sh/lucide-react@0.344.0"
+            }
+        }
+    </script>
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased">
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useMemo, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { Eye, CheckCircle, XCircle, FileText, Save, Upload, PieChart, Building2, ExternalLink, AlertCircle, Search, DownloadCloud, BookOpen } from 'lucide-react';
+
+        // --- 內建範本 CSV (根據第四屆永續金融評鑑說明 PDF 提取) ---
+        // 包含共同指標與部分銀行業指標範例
+        const OFFICIAL_TEMPLATE_CSV = `編號,業別,指標內容,指標說明與附註,評鑑資訊依據
+ESG-1-1,共同,"永續報告書是否參考國際通用準則（如GRI、SASB）揭露相關 ESG 資訊，並取得第三方確信或查證？","【質性】參考國際通用準則至少必須包括GRI及SASB。",年報、永續報告書
+ESG-1-2,共同,"永續報告書是否經董事會討論決議通過，且上傳公開資訊觀測站並於公司官網公開？","【質性】",年報、永續報告書、公開資訊觀測站
+ESG-1-3,共同,"是否依據「永續經濟活動認定參考指引」，針對放款、投資、資產管理或產物承保，分別計算永續占比並揭露？","【質性】",永續報告書
+ESG-2-1,共同,"是否將永續發展、因應氣候變遷的作為，與績效考核、薪酬結構或升遷管理予以連結？","【質性】強化組織內員工對永續經營之推動誘因。",年報、公司網站
+ESG-3-1,共同,"是否在董事會下成立永續發展相關功能性委員會，人數不少於3人，且至少每季召開會議？","【質性】需揭露其組成、職責及運作情形。",年報
+E1-1-1,共同,"是否於辦理業務時，就面臨的實體風險（如旱災、淹水），彙總性地揭露其分布情形？","【質性】請提供未涉及個別客戶資料之彙總性評估結果。",氣候相關財務揭露報告(TCFD)
+E2-1-3,共同,"是否參考 SBTi 或 PCAF 等國際方法論，訂定並揭露至2030年前之範疇三逐年減碳目標？","【質性】涵蓋放款、投資、資產管理等。",永續報告書
+E4-1-1,共同,"是否遵循科學減量方法論，就範疇一及範疇二訂定並揭露自身到2030年前之逐年減碳目標？","【質性】",永續報告書
+E4-3-1,共同,"營業總部是否通過「ISO 50001能源管理系統」或「ISO 14001環境管理系統」驗證？","【質性】",證書、永續報告書
+S1-1-1,共同,"是否參考國際間申訴處理機制規範及作法，強化申訴案件處理之效能及效率？","【質性】將具體落實情形及檢討建議提報董事會。",年報
+S2-1-3,共同,"董事、負責人及高階經理人，是否均已接受金融友善或身心障礙者權利公約(CRPD)相關教育訓練？","【質性】",年報、教育訓練紀錄
+S3-1-1,共同,"是否參考國際勞工組織(ILO)核心勞動基準，制訂保障政策，並揭露工時、薪酬公平性等執行情形？","【質性】",永續報告書
+S4-1-1,共同,"資通安全管理方案是否導入 ISO 27001 或 ISO 22301 等國際標準，並取得外部驗證？","【質性】",資訊安全專區
+G1-1-1,共同,"是否於股東常會報告董事領取之酬金，包含酬金政策、個別酬金內容及與績效之關聯性？","【質性】",股東會議事手冊
+G2-1-1,共同,"公司董事任一性別是否達董事會席次三分之一以上？","【質性】男性、女性均需達三分之一以上。",年報
+ESG-4-1,銀行業,"是否將綠色授信、永續績效連結授信之認定原則，納入銀行內部控制制度及內部稽核範圍？","【質性/銀行業】",內部控制聲明書
+E1-1-1-B,銀行業,"是否揭露具較高授信集中度(8%以上)產業之實體風險及轉型風險？","【質性/銀行業】需包含揭露該產業之前三大集中地區。",TCFD報告
+S2-4-5,銀行業,"受評資料所屬年度以房養老放款金額佔總房貸業務金額之比率？","【量化/銀行業】",年報
+E2-4-1,保險業,"近一年簽發電子保單數量占該年度新契約保單數量之比率？","【量化/保險業】",年報
+S2-4-1,證券業,"是否擔任永續發展債券發行主辦承銷商？","【質性/證券業】",年報`;
+
+        // --- 設定與常數 ---
+        // 根據 PDF 第 10 頁：綜合 25%, E 25%, S 25%, G 25%
+        const WEIGHTS = { I: 0.25, E: 0.25, S: 0.25, G: 0.25 };
+
+        // 分類設定 (I=Integrated 綜合/永續發展)
+        const CATEGORY_CONFIG = {
+            I: { name: "綜合發展 (Integrated)", icon: PieChart, color: "indigo", bg: "bg-indigo-100", text: "text-indigo-700", border: "border-indigo-200" },
+            E: { name: "環境支柱 (Environment)", icon: BookOpen, color: "emerald", bg: "bg-emerald-100", text: "text-emerald-700", border: "border-emerald-200" },
+            S: { name: "社會支柱 (Social)", icon: Building2, color: "sky", bg: "bg-sky-100", text: "text-sky-700", border: "border-sky-200" },
+            G: { name: "治理支柱 (Governance)", icon: Eye, color: "violet", bg: "bg-violet-100", text: "text-violet-700", border: "border-violet-200" }
+        };
+
+        const SECTORS = [
+            { id: 'all', name: '不分業別 (全部顯示)' },
+            { id: 'bank', name: '銀行業' },
+            { id: 'insurance', name: '保險業' },
+            { id: 'securities', name: '證券/投信業' }
+        ];
+
+        // CSV 解析器
+        const parseCSV = (text) => {
+            const rows = [];
+            let currentRow = [];
+            let currentVal = '';
+            let insideQuote = false;
+            
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                if (char === '"') {
+                    if (insideQuote && text[i+1] === '"') { currentVal += '"'; i++; }
+                    else { insideQuote = !insideQuote; }
+                } else if (char === ',' && !insideQuote) {
+                    currentRow.push(currentVal.trim()); currentVal = '';
+                } else if ((char === '\r' || char === '\n') && !insideQuote) {
+                    if (char === '\r' && text[i+1] === '\n') i++;
+                    currentRow.push(currentVal.trim());
+                    if (currentRow.length > 0) rows.push(currentRow);
+                    currentRow = []; currentVal = '';
+                } else { currentVal += char; }
+            }
+            if (currentVal || currentRow.length > 0) { currentRow.push(currentVal.trim()); rows.push(currentRow); }
+            return rows;
+        };
+
+        function ObserverSystem() {
+            const [activeTab, setActiveTab] = useState("dashboard");
+            const [indicators, setIndicators] = useState([]);
+            const [observations, setObservations] = useState({});
+            const [targetName, setTargetName] = useState("");
+            const [targetSector, setTargetSector] = useState("all");
+            const [searchTerm, setSearchTerm] = useState("");
+            const [expandedId, setExpandedId] = useState(null);
+            const [hasData, setHasData] = useState(false); 
+            const fileInputRef = useRef(null);
+            
+            // 根據指標編號判斷分類 (ESG-X -> I, E -> E, S -> S, G -> G)
+            const getCategory = (id) => {
+                if (id.startsWith('ESG')) return 'I';
+                if (id.startsWith('E')) return 'E';
+                if (id.startsWith('S')) return 'S';
+                if (id.startsWith('G')) return 'G';
+                return 'I';
+            };
+
+            // 判斷指標是否屬於當前選定業別
+            const isRelevantSector = (indicatorSector, currentFilter) => {
+                if (currentFilter === 'all') return true;
+                if (indicatorSector.includes('共同')) return true;
+                if (currentFilter === 'bank' && indicatorSector.includes('銀行')) return true;
+                if (currentFilter === 'insurance' && indicatorSector.includes('保險')) return true;
+                if (currentFilter === 'securities' && (indicatorSector.includes('證券') || indicatorSector.includes('投信'))) return true;
+                return false;
+            };
+
+            const handleDownloadTemplate = () => {
+                const blob = new Blob([OFFICIAL_TEMPLATE_CSV], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', '永續金融評鑑_觀測指標範本.csv');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            const handleFileChange = (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const text = e.target?.result;
+                    if (file.name.endsWith('.json')) {
+                        const data = JSON.parse(text);
+                        setIndicators(data.indicators);
+                        setObservations(data.observations);
+                        setTargetName(data.targetName || "");
+                        setTargetSector(data.targetSector || "all");
+                        setHasData(true);
+                    } else {
+                        processCSV(text);
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            };
+
+            const processCSV = (csvText) => {
+                try {
+                    const rows = parseCSV(csvText);
+                    // 假設第一行是標題，從第二行開始
+                    const newIndicators = rows.slice(1).map((cols) => {
+                        if (cols.length < 3) return null;
+                        const id = cols[0];
+                        const sector = cols[1] || "共同";
+                        const content = cols[2];
+                        const note = cols[3] || "";
+                        const source = cols[4] || "";
+                        
+                        return {
+                            id,
+                            sector,
+                            category: getCategory(id),
+                            title: content,
+                            note,
+                            source
+                        };
+                    }).filter(Boolean);
+
+                    setIndicators(newIndicators);
+                    setHasData(true);
+                    setActiveTab("dashboard");
+                } catch (err) {
+                    alert("CSV 解析失敗，請確認格式。");
+                }
+            };
+
+            const handleSave = () => {
+                const data = {
+                    timestamp: new Date().toISOString(),
+                    targetName,
+                    targetSector,
+                    indicators,
+                    observations
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `觀測紀錄_${targetName || '未命名'}_${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+            };
+
+            // 統計邏輯
+            const stats = useMemo(() => {
+                // 過濾出當前業別相關的指標
+                const relevantIndicators = indicators.filter(i => isRelevantSector(i.sector, targetSector));
+                
+                let raw = { I: 0, E: 0, S: 0, G: 0 };
+                let total = { I: 0, E: 0, S: 0, G: 0 };
+                let observedCount = 0;
+
+                relevantIndicators.forEach(item => {
+                    const obs = observations[item.id];
+                    if (total[item.category] !== undefined) total[item.category]++;
+                    
+                    // 只有當明確標記為 "Observed (True)" 才算分
+                    if (obs?.isObserved === true) {
+                        if (raw[item.category] !== undefined) raw[item.category]++;
+                        observedCount++;
+                    }
+                });
+
+                const score = (cat) => total[cat] ? (raw[cat] / total[cat]) * (WEIGHTS[cat] * 100) : 0;
+                const finalScore = score('I') + score('E') + score('S') + score('G');
+
+                return {
+                    raw, total,
+                    scores: {
+                        I: score('I').toFixed(1),
+                        E: score('E').toFixed(1),
+                        S: score('S').toFixed(1),
+                        G: score('G').toFixed(1),
+                        Total: finalScore.toFixed(1)
+                    },
+                    progress: relevantIndicators.length > 0 ? Math.round((observedCount / relevantIndicators.length) * 100) : 0,
+                    relevantCount: relevantIndicators.length
+                };
+            }, [indicators, observations, targetSector]);
+
+            const renderDashboard = () => (
+                <div className="space-y-6 animate-fade-in">
+                    {/* Target Info Card */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">觀測對象 (Target Institution)</h2>
+                                <input 
+                                    type="text" 
+                                    placeholder="請輸入金融機構名稱 (如: XX銀行)"
+                                    className="text-2xl font-black text-slate-800 placeholder-slate-300 border-none focus:ring-0 p-0 w-full bg-transparent"
+                                    value={targetName}
+                                    onChange={(e) => setTargetName(e.target.value)}
+                                />
+                            </div>
+                            <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-lg border border-slate-100">
+                                <span className="text-sm font-bold text-slate-500">適用業別：</span>
+                                <select 
+                                    value={targetSector} 
+                                    onChange={(e) => setTargetSector(e.target.value)}
+                                    className="bg-transparent font-bold text-slate-700 focus:outline-none cursor-pointer"
+                                >
+                                    {SECTORS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Score Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="md:col-span-4 bg-slate-800 text-white p-6 rounded-2xl shadow-lg flex items-center justify-between relative overflow-hidden">
+                            <div className="relative z-10">
+                                <p className="text-slate-400 text-xs font-bold uppercase mb-1">公開揭露觀測總分</p>
+                                <div className="text-5xl font-black tracking-tight">{stats.scores.Total} <span className="text-2xl text-slate-500 font-medium">/ 100</span></div>
+                                <p className="text-slate-400 text-xs mt-2">基於 {stats.relevantCount} 項適用指標之觀測結果</p>
+                            </div>
+                            <div className="relative z-10">
+                                <div className="w-20 h-20 rounded-full border-4 border-slate-600 flex items-center justify-center">
+                                    <span className="font-bold text-xl">{stats.progress}%</span>
+                                </div>
+                            </div>
+                            <div className="absolute right-0 top-0 w-64 h-64 bg-slate-700/20 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                        </div>
+
+                        {['I', 'E', 'S', 'G'].map(cat => {
+                            const cfg = CATEGORY_CONFIG[cat];
+                            const Icon = cfg.icon;
+                            return (
+                                <div key={cat} className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className={`p-2 rounded-lg ${cfg.bg} ${cfg.text}`}>
+                                            <Icon size={20} />
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded">權重 25%</span>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-slate-500 text-xs font-bold uppercase mb-1">{cfg.name}</h3>
+                                        <div className="text-2xl font-bold text-slate-800">{stats.scores[cat]}</div>
+                                        <div className="text-xs text-slate-400 mt-1">
+                                            已觀測 {stats.raw[cat]} / {stats.total[cat]} 項
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+
+            const renderList = (cat) => {
+                const list = indicators.filter(i => 
+                    i.category === cat && 
+                    isRelevantSector(i.sector, targetSector) &&
+                    (i.title.includes(searchTerm) || i.id.includes(searchTerm))
+                );
+
+                if (list.length === 0) return <div className="text-center py-12 text-slate-400">此分類無符合指標</div>;
+
+                return (
+                    <div className="space-y-4">
+                        {list.map(item => {
+                            const obs = observations[item.id] || {};
+                            const cfg = CATEGORY_CONFIG[item.category];
+                            const isExpanded = expandedId === item.id;
+
+                            return (
+                                <div key={item.id} className={`bg-white border rounded-xl transition-all ${obs.isObserved ? 'border-emerald-500 shadow-md ring-1 ring-emerald-500' : 'border-slate-200 hover:border-slate-300'}`}>
+                                    <div className="p-5">
+                                        <div className="flex gap-4 items-start cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : item.id)}>
+                                            <div className={`shrink-0 w-16 text-center`}>
+                                                <span className={`block text-xs font-bold px-2 py-1 rounded ${cfg.bg} ${cfg.text}`}>{item.id}</span>
+                                                <span className="block text-[10px] text-slate-400 mt-1">{item.sector}</span>
+                                            </div>
+                                            <div className="flex-1">
+                                                <h4 className="font-bold text-slate-800 mb-1">{item.title}</h4>
+                                                <div className="flex items-center gap-2 text-xs text-slate-500">
+                                                    <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1">
+                                                        <Search size={10} /> 建議來源：{item.source || "公開資訊"}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div onClick={e => e.stopPropagation()}>
+                                                <button 
+                                                    onClick={() => setObservations(prev => ({...prev, [item.id]: { ...prev[item.id], isObserved: !obs.isObserved }}))}
+                                                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${obs.isObserved ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300 hover:bg-slate-200'}`}
+                                                    title="標記為已觀測到揭露 (Observed)"
+                                                >
+                                                    {obs.isObserved ? <CheckCircle size={24} /> : <Eye size={24} />}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {isExpanded && (
+                                            <div className="mt-4 pt-4 border-t border-slate-100 pl-20 animate-fade-in">
+                                                <div className="mb-4 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                                    <span className="font-bold text-slate-800">ℹ️ 指標說明：</span> {item.note}
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">公開揭露來源連結 (URL / 頁碼)</label>
+                                                        <div className="relative">
+                                                            <ExternalLink className="absolute top-2.5 left-3 text-slate-400" size={14} />
+                                                            <input 
+                                                                type="text" 
+                                                                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                                                placeholder="例：2024永續報告書 p.45"
+                                                                value={obs.evidenceLink || ""}
+                                                                onChange={(e) => setObservations(prev => ({...prev, [item.id]: { ...prev[item.id], evidenceLink: e.target.value }}))}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">第三方觀測筆記</label>
+                                                        <input 
+                                                            type="text" 
+                                                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                                            placeholder="例：有揭露，但數據不完整..."
+                                                            value={obs.note || ""}
+                                                            onChange={(e) => setObservations(prev => ({...prev, [item.id]: { ...prev[item.id], note: e.target.value }}))}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
+            };
+
+            if (!hasData) return (
+                <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+                    <div className="max-w-3xl w-full text-center space-y-8">
+                        <div>
+                            <div className="inline-flex items-center justify-center w-20 h-20 bg-indigo-600 text-white rounded-2xl mb-6 shadow-xl shadow-indigo-200">
+                                <Eye size={40} />
+                            </div>
+                            <h1 className="text-4xl font-black text-slate-900 mb-3">永續金融公開揭露觀測系統</h1>
+                            <p className="text-lg text-slate-500">
+                                第四屆永續金融評鑑・第三方視角・證據導向
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                            <button onClick={handleDownloadTemplate} className="group bg-white p-8 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all hover:-translate-y-1">
+                                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                    <DownloadCloud size={24} />
+                                </div>
+                                <h3 className="text-lg font-bold text-slate-800 mb-2">1. 下載觀測指標範本</h3>
+                                <p className="text-slate-500 text-sm">取得預設的評鑑指標 CSV 檔（包含綜合、環境、社會、治理四大支柱）。</p>
+                            </button>
+
+                            <button onClick={() => fileInputRef.current.click()} className="group bg-white p-8 rounded-2xl border border-indigo-200 shadow-sm hover:shadow-lg transition-all hover:-translate-y-1 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 bg-indigo-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl">開始使用</div>
+                                <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-4">
+                                    <Upload size={24} />
+                                </div>
+                                <h3 className="text-lg font-bold text-slate-800 mb-2">2. 匯入指標或紀錄</h3>
+                                <p className="text-slate-500 text-sm">上傳 CSV 指標檔或先前儲存的 JSON 觀測紀錄檔以開始作業。</p>
+                            </button>
+                        </div>
+                        
+                        <div className="text-xs text-slate-400 mt-8">
+                            本系統僅供第三方研究或觀測使用，資料運算皆於瀏覽器端完成，不會上傳至任何伺服器。
+                        </div>
+                    </div>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".csv,.json" />
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen bg-slate-50/50 pb-20">
+                    <header className="bg-white/80 backdrop-blur-md sticky top-0 z-30 border-b border-slate-200 px-4 h-16 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-indigo-600 text-white p-1.5 rounded"><Eye size={18} /></div>
+                            <h1 className="font-bold text-slate-800 hidden md:block">永續金融觀測站</h1>
+                        </div>
+
+                        <div className="flex items-center gap-1 md:gap-6 overflow-x-auto no-scrollbar mx-4">
+                            {['dashboard', 'I', 'E', 'S', 'G'].map(tab => {
+                                const cfg = CATEGORY_CONFIG[tab] || { name: "儀表板" };
+                                const isActive = activeTab === tab;
+                                return (
+                                    <button 
+                                        key={tab} 
+                                        onClick={() => setActiveTab(tab)}
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${isActive ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}
+                                    >
+                                        {tab === 'dashboard' ? '總覽儀表板' : cfg.name.split(' ')[0]}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button onClick={handleSave} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold hover:bg-indigo-100 transition-colors">
+                                <Save size={16} /> <span className="hidden md:inline">儲存紀錄</span>
+                            </button>
+                            <button onClick={() => window.location.reload()} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="重置">
+                                <AlertCircle size={18} />
+                            </button>
+                        </div>
+                    </header>
+
+                    <main className="max-w-6xl mx-auto px-4 py-8">
+                        {activeTab === 'dashboard' ? renderDashboard() : (
+                            <div className="animate-fade-in">
+                                <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                                    <h2 className={`text-xl font-bold flex items-center gap-2 ${CATEGORY_CONFIG[activeTab].text}`}>
+                                        {React.createElement(CATEGORY_CONFIG[activeTab].icon, { size: 24 })}
+                                        {CATEGORY_CONFIG[activeTab].name}
+                                    </h2>
+                                    <div className="relative w-full md:w-72">
+                                        <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                                        <input 
+                                            type="text" 
+                                            placeholder="搜尋指標..." 
+                                            className="w-full pl-9 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            value={searchTerm}
+                                            onChange={e => setSearchTerm(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                {renderList(activeTab)}
+                            </div>
+                        )}
+                    </main>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".csv,.json" />
+                </div>
+            );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<ObserverSystem />);
+    </script>
+</body>
+</html>
